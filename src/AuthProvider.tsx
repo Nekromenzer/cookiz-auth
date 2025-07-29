@@ -11,7 +11,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     logout: "/logout",
     user: "/me",
     refresh: "/refresh",
-    baseUrl: "",
+    baseUrl: "http://localhost:4000",
   },
 }) => {
   const [user, setUser] = useState<User | null>(null);
