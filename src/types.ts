@@ -12,3 +12,14 @@ export interface AuthContextType {
     logout: () => Promise<void>;
     refresh: () => Promise<void>;
 }
+
+export interface AuthProviderProps {
+    children: React.ReactNode;
+    endpoints?: {
+        login?: string;
+        logout?: string;
+        user?: string;
+        refresh?: string;
+        baseUrl?: string;
+    };
+}

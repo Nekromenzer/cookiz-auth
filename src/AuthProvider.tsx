@@ -1,18 +1,25 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
-import { AuthContextType, User } from "./types";
+import { AuthContextType, AuthProviderProps, User } from "./types";
 import { apiFetch } from "./api";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+export const AuthProvider: React.FC<AuthProviderProps> = ({
   children,
+  endpoints = {
+    login: "/login",
+    logout: "/logout",
+    user: "/me",
+    refresh: "/refresh",
+    baseUrl: "",
+  },
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchUser = async () => {
     try {
-      const res = await apiFetch("/me");
+      const res = await apiFetch(`${endpoints.baseUrl}${endpoints.me}`);
       if (res.ok) setUser(await res.json());
       else setUser(null);
     } catch {
@@ -23,7 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const login = async (credentials: { email: string; password: string }) => {
-    await apiFetch("/login", {
+    await apiFetch(`${endpoints.baseUrl}${endpoints.login}`, {
       method: "POST",
       body: JSON.stringify(credentials),
     });
@@ -31,12 +38,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const logout = async () => {
-    await apiFetch("/logout", { method: "POST" });
+    await apiFetch(`${endpoints.baseUrl}${endpoints.logout}`, {
+      method: "POST",
+    });
     setUser(null);
   };
 
   const refresh = async () => {
-    await apiFetch("/refresh", { method: "POST" });
+    await apiFetch(`${endpoints.baseUrl}${endpoints.refresh}`, {
+      method: "POST",
+    });
     await fetchUser();
   };
 
