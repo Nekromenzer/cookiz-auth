@@ -11,7 +11,8 @@
   "scripts": {
     "build": "rollup -c",
     "dev": "tsc --watch",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "publish": "npm publish --access public"
   },
   "peerDependencies": {
     "react": "^18.0.0",
