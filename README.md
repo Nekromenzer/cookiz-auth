@@ -149,7 +149,7 @@ To contribute to `cookiz-auth`, follow these steps:
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/Nekromenzer/cookiz.git
+   git clone https://www.npmjs.com/package/cookiz-auth
    ```
 2. **Install dependencies**:
    ```bash
@@ -176,3 +176,8 @@ To contribute to `cookiz-auth`, follow these steps:
    ```
 7. **Fork the repository** on GitHub and create a new branch for your feature or bug fix.
 8. **Submit a pull request** with a clear description of your changes.
+
+## Links
+
+- **npm package:** [cookiz-auth](https://www.npmjs.com/package/cookiz-auth)
+- **GitHub repo:** [Nekromenzer/cookiz](https://github.com/Nekromenzer/cookiz-auth)
