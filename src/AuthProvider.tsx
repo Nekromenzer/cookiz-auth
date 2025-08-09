@@ -19,7 +19,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
 
   const fetchUser = async () => {
     try {
-      const res = await apiFetch(`${endpoints.baseUrl}${endpoints.me}`);
+      const res = await apiFetch(`${endpoints.baseUrl}${endpoints?.me}`);
       if (res.ok) setUser(await res.json());
       else setUser(null);
     } catch {

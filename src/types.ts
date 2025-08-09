@@ -21,5 +21,6 @@ export interface AuthProviderProps {
         user?: string;
         refresh?: string;
         baseUrl?: string;
+        me?: string;
     };
 }
