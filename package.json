@@ -1,7 +1,7 @@
 {
   "name": "cookiz-auth",
   "version": "1.0.0",
-  "description": "Cookie-based authentication library for React apps",
+  "description": "React cookie-based authentication with HTTP-only cookies and customizable endpoints.",
   "main": "dist/index.cjs.js",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
@@ -38,5 +38,15 @@
       "react-dom",
       "node"
     ]
-  }
+  },
+  "keywords": [
+    "react",
+    "authentication",
+    "cookies",
+    "http-only",
+    "auth",
+    "typescript"
+  ],
+  "author": "nekromenzer",
+  "license": "MIT"
 }
