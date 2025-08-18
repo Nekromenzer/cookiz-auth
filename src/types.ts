@@ -10,10 +10,10 @@ export interface AuthContextType {
     loading: boolean;
     login: (credentials: { email: string; password: string }) => Promise<void>;
     logout: () => Promise<void>;
-    refresh: () => Promise<void>;
+    refresh?: () => Promise<void>; // optional
 }
 
-export interface IFirebaseConfig {
+export interface FirebaseConfig {
     apiKey?: string;
     authDomain?: string;
     projectId?: string;
@@ -22,16 +22,24 @@ export interface IFirebaseConfig {
     appId?: string;
 }
 
+export interface AuthAdapter {
+    login: (credentials: { email: string; password: string }) => Promise<void>;
+    logout: () => Promise<void>;
+    refresh?: () => Promise<void>;
+    getUser: () => Promise<User | null>;
+}
+
+export interface Endpoints {
+    login: string;
+    logout: string;
+    user: string;
+    refresh?: string;
+    baseUrl?: string;
+}
+
+export type AuthMode = "default" | "firebase";
+
 export interface AuthProviderProps {
     children: React.ReactNode;
-    mode?: "default" | "firebase";
-    firebaseConfig?: IFirebaseConfig;
-    endpoints?: {
-        login?: string;
-        logout?: string;
-        user?: string;
-        refresh?: string;
-        baseUrl?: string;
-        me?: string;
-    };
+    adapter: AuthAdapter;
 }
