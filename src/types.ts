@@ -13,8 +13,19 @@ export interface AuthContextType {
     refresh: () => Promise<void>;
 }
 
+export interface IFirebaseConfig {
+    apiKey?: string;
+    authDomain?: string;
+    projectId?: string;
+    storageBucket?: string;
+    messagingSenderId?: string;
+    appId?: string;
+}
+
 export interface AuthProviderProps {
     children: React.ReactNode;
+    mode?: "default" | "firebase";
+    firebaseConfig?: IFirebaseConfig;
     endpoints?: {
         login?: string;
         logout?: string;
