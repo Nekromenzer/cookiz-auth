@@ -2,8 +2,8 @@
 
 [![npm version](https://img.shields.io/npm/v/cookiz-auth.svg)](https://www.npmjs.com/package/cookiz-auth)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![GitHub issues](https://img.shields.io/github/issues/Nekromenzer/cookiz)](https://github.com/Nekromenzer/cookiz/issues)
-[![GitHub stars](https://img.shields.io/github/stars/Nekromenzer/cookiz)](https://github.com/Nekromenzer/cookiz/stargazers)
+[![GitHub issues](https://img.shields.io/github/issues/Nekromenzer/cookiz-auth)](https://github.com/Nekromenzer/cookiz-auth/issues)
+[![GitHub stars](https://img.shields.io/github/stars/Nekromenzer/cookiz-auth)](https://github.com/Nekromenzer/cookiz-auth/stargazers)
 
 A **cookie-based authentication** library for React that uses **HTTP-only cookies** for secure session handling.  
 Built to be backend-agnostic, simple to integrate, and secure by default.
@@ -208,7 +208,7 @@ To contribute to `cookiz-auth`, follow these steps:
 
 1. **Clone the repository**:
    ```bash
-   git clone https://www.npmjs.com/package/cookiz-auth
+   git clone https://github.com/Nekromenzer/cookiz-auth.git
    ```
 2. **Install dependencies**:
    ```bash
@@ -239,4 +239,4 @@ To contribute to `cookiz-auth`, follow these steps:
 ## Links
 
 - **npm package:** [cookiz-auth](https://www.npmjs.com/package/cookiz-auth)
-- **GitHub repo:** [Nekromenzer/cookiz](https://github.com/Nekromenzer/cookiz-auth)
+- **GitHub repo:** [Nekromenzer/cookiz-auth](https://github.com/Nekromenzer/cookiz-auth)

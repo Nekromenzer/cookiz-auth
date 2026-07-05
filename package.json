@@ -1,7 +1,11 @@
 {
-  "name": "@nekromenzer/cookiz-auth",
-  "version": "1.0.3",
+  "name": "cookiz-auth",
+  "version": "1.0.4",
   "description": "React cookie-based authentication with HTTP-only cookies and customizable endpoints.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nekromenzer/cookiz-auth.git"
+  },
   "main": "dist/index.cjs.js",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
@@ -14,6 +18,10 @@
     "prepare": "npm run build",
     "publish": "npm publish --access public",
     "publish:github": "npm publish --registry=https://npm.pkg.github.com"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "peerDependencies": {
     "firebase": "^12.15.0",
@@ -31,7 +39,6 @@
     "@rollup/plugin-typescript": "^12.1.4",
     "@types/node": "^24.1.0",
     "@types/react": "^19.1.9",
-    "firebase": "^12.15.0",
     "rollup": "^4.46.1",
     "rollup-plugin-peer-deps-external": "^2.2.4",
     "typescript": "^5.8.3"
