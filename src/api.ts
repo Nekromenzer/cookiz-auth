@@ -1,7 +1,11 @@
 export const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 
+const buildUrl = (url: string) => /^https?:\/\//i.test(url) ? url : `${API_BASE}${url}`;
+
 export const apiFetch = async (url: string, options: RequestInit = {}) => {
-    const res = await fetch(`${API_BASE}${url}`, {
+    const requestUrl = buildUrl(url);
+
+    const res = await fetch(requestUrl, {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
         ...options
@@ -14,7 +18,7 @@ export const apiFetch = async (url: string, options: RequestInit = {}) => {
             credentials: 'include'
         });
         if (refresh.ok) {
-            return fetch(`${API_BASE}${url}`, {
+            return fetch(requestUrl, {
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
                 ...options

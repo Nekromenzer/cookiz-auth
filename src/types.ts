@@ -1,7 +1,25 @@
 export interface User {
     id: string;
-    name: string;
+    name?: string | null;
     email: string;
+    [key: string]: any;
+}
+
+export type AuthMode = "cookie" | "firebase";
+
+export interface FirebaseUserLike {
+    uid: string;
+    displayName: string | null;
+    email: string | null;
+    emailVerified: boolean;
+    phoneNumber: string | null;
+    photoURL: string | null;
+    providerId: string;
+    [key: string]: any;
+}
+
+export interface FirebaseAuthLike {
+    currentUser: FirebaseUserLike | null;
     [key: string]: any;
 }
 
@@ -15,6 +33,7 @@ export interface AuthContextType {
 
 export interface AuthProviderProps {
     children: React.ReactNode;
+    mode?: AuthMode;
     endpoints?: {
         login?: string;
         logout?: string;
@@ -23,4 +42,6 @@ export interface AuthProviderProps {
         baseUrl?: string;
         me?: string;
     };
+    firebaseAuth?: FirebaseAuthLike;
+    mapFirebaseUser?: (user: FirebaseUserLike) => User;
 }

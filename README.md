@@ -14,6 +14,7 @@ Built to be backend-agnostic, simple to integrate, and secure by default.
 
 - **Secure HTTP-only cookie authentication** (no localStorage token handling)
 - **Customizable endpoints** (`/login`, `/logout`, `/me`, `/refresh`)
+- **Optional Firebase Auth support** with the same provider + hook API
 - **Auth context + `useAuth()` hook** for user session state
 - **TypeScript support out-of-the-box**
 - **Framework agnostic backend support** (Node.js, Laravel, Django, Go, etc.)
@@ -84,6 +85,64 @@ const Dashboard = () => {
     </button>
   );
 };
+```
+
+## 🔥 Firebase Auth
+
+Firebase support is optional. Install Firebase in your app, initialize it there,
+then pass the Firebase `Auth` instance to `AuthProvider`.
+
+```bash
+npm install firebase
+```
+
+```tsx
+import React from "react";
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { AuthProvider } from "cookiz-auth";
+
+const firebaseApp = initializeApp({
+  apiKey: "your-api-key",
+  authDomain: "your-project.firebaseapp.com",
+  projectId: "your-project-id",
+  appId: "your-app-id",
+});
+
+const firebaseAuth = getAuth(firebaseApp);
+
+const App = () => (
+  <AuthProvider mode="firebase" firebaseAuth={firebaseAuth}>
+    <YourAppComponents />
+  </AuthProvider>
+);
+```
+
+The existing `useAuth()` API stays the same:
+
+```tsx
+const { user, login, logout, refresh, loading } = useAuth();
+
+await login({ email: "test@example.com", password: "123456" });
+await refresh(); // forces a Firebase ID token refresh
+await logout();
+```
+
+You can customize the user object exposed by the hook:
+
+```tsx
+<AuthProvider
+  mode="firebase"
+  firebaseAuth={firebaseAuth}
+  mapFirebaseUser={(firebaseUser) => ({
+    id: firebaseUser.uid,
+    name: firebaseUser.displayName,
+    email: firebaseUser.email || "",
+    avatar: firebaseUser.photoURL,
+  })}
+>
+  <YourAppComponents />
+</AuthProvider>
 ```
 
 ## protected Routes
