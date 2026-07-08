@@ -38,7 +38,7 @@
     "@rollup/plugin-typescript": "^12.1.4",
     "@types/node": "^24.1.0",
     "@types/react": "^19.1.9",
-    "rollup": "^4.46.1",
+    "rollup": "^4.62.2",
     "rollup-plugin-peer-deps-external": "^2.2.4",
     "typescript": "^5.8.3"
   },
