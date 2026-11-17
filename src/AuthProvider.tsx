@@ -33,6 +33,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const sessionVersion = useRef(0);
+  const authFetch = (url: string, options: RequestInit = {}) =>
+    apiFetch(url, options, `${endpoints.baseUrl}${endpoints.refresh}`);
 
   if (mode === "firebase" && !firebaseAuth) {
     throw new Error("firebaseAuth is required when AuthProvider mode is 'firebase'");
@@ -49,7 +51,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
 
     try {
       const userEndpoint = endpoints.user || endpoints.me || "/me";
-      const res = await apiFetch(`${endpoints.baseUrl}${userEndpoint}`);
+      const res = await authFetch(`${endpoints.baseUrl}${userEndpoint}`);
       const nextUser = res.ok ? await res.json() : null;
       if (version === sessionVersion.current) setUser(nextUser);
     } catch {
@@ -72,7 +74,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     }
 
     const version = sessionVersion.current;
-    await apiFetch(`${endpoints.baseUrl}${endpoints.login}`, {
+    await authFetch(`${endpoints.baseUrl}${endpoints.login}`, {
       method: "POST",
       body: JSON.stringify(credentials),
     });
@@ -90,7 +92,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     // Invalidate requests started before logout, including pending JSON parsing.
     sessionVersion.current += 1;
     try {
-      const res = await apiFetch(`${endpoints.baseUrl}${endpoints.logout}`, {
+      const res = await authFetch(`${endpoints.baseUrl}${endpoints.logout}`, {
         method: "POST",
       });
       if (!res.ok) {
@@ -118,7 +120,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     }
 
     const version = sessionVersion.current;
-    await apiFetch(`${endpoints.baseUrl}${endpoints.refresh}`, {
+    await authFetch(`${endpoints.baseUrl}${endpoints.refresh}`, {
       method: "POST",
     });
     if (version === sessionVersion.current) await fetchUser();

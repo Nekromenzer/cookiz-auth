@@ -26,7 +26,7 @@ const ok = { ok: true, status: 204 };
 const userResponse = { ok: true, json: async () => existingUser };
 const flush = () => new Promise(resolve => setImmediate(resolve));
 
-function provider(apiFetch, initialUser = null) {
+function provider(apiFetch, initialUser = null, endpoints) {
   const states = [];
   const effects = [];
   const react = {
@@ -49,7 +49,7 @@ function provider(apiFetch, initialUser = null) {
       throw new Error(`Unexpected import: ${name}`);
     },
   });
-  const { props } = exports.AuthProvider({ children: null });
+  const { props } = exports.AuthProvider({ children: null, endpoints });
   return {
     auth: props.value,
     mount: () => effects[0](),
@@ -151,4 +151,108 @@ test('effect cleanup discards pending user responses', async () => {
   await flush();
   assert.equal(app.user, null);
   assert.equal(app.loading, true);
+});
+
+const apiCode = ts.transpileModule(
+  fs.readFileSync(path.join(__dirname, '../src/api.ts'), 'utf8'),
+  { compilerOptions: { module: ts.ModuleKind.CommonJS } }
+).outputText;
+
+function realApi(fetch) {
+  const exports = {};
+  vm.runInNewContext(apiCode, { exports, fetch });
+  return exports.apiFetch;
+}
+
+for (const config of [
+  {
+    name: 'custom HTTPS API and refresh path',
+    endpoints: { baseUrl: 'https://auth.example.test', user: '/api/user', refresh: '/session/renew' },
+    userUrl: 'https://auth.example.test/api/user',
+    refreshUrl: 'https://auth.example.test/session/renew',
+  },
+  {
+    name: 'default localhost API',
+    endpoints: undefined,
+    userUrl: 'http://localhost:4000/me',
+    refreshUrl: 'http://localhost:4000/refresh',
+  },
+  {
+    name: 'same-origin relative API',
+    endpoints: { baseUrl: '', user: '/api/user', refresh: '/api/renew' },
+    userUrl: '/api/user',
+    refreshUrl: '/api/renew',
+  },
+]) {
+  test(`automatic refresh uses the provider configuration: ${config.name}`, async () => {
+    const requests = [];
+    const app = provider(realApi(async (url, options) => {
+      requests.push({ url, options });
+      if (requests.length === 1) return { ok: false, status: 401 };
+      return url === config.refreshUrl ? ok : userResponse;
+    }), null, config.endpoints);
+    app.mount();
+    await flush();
+    assert.deepEqual(requests.map(request => request.url), [
+      config.userUrl, config.refreshUrl, config.userUrl,
+    ]);
+    assert.equal(requests[1].options.method, 'POST');
+    assert.equal(requests.every(request => request.options.credentials === 'include'), true);
+    assert.equal(app.user, existingUser);
+  });
+}
+
+test('login, logout, and explicit refresh pass the configured refresh URL', async () => {
+  const requests = [];
+  const app = provider(async (url, options, refreshUrl) => {
+    requests.push({ url, refreshUrl });
+    return url.endsWith('/me') ? userResponse : ok;
+  }, null, { baseUrl: 'https://auth.example.test', refresh: '/session/renew' });
+  await app.auth.login({ email: 'test@example.test', password: 'synthetic' });
+  await app.auth.refresh();
+  await app.auth.logout();
+  assert.deepEqual(requests.map(request => request.url), [
+    'https://auth.example.test/login',
+    'https://auth.example.test/me',
+    'https://auth.example.test/session/renew',
+    'https://auth.example.test/me',
+    'https://auth.example.test/logout',
+  ]);
+  assert.equal(requests.every(request => request.refreshUrl === 'https://auth.example.test/session/renew'), true);
+});
+
+test('failed automatic refresh returns the original 401 without retrying', async () => {
+  const requests = [];
+  const unauthorized = { ok: false, status: 401 };
+  const apiFetch = realApi(async url => {
+    requests.push(url);
+    return unauthorized;
+  });
+  assert.equal(await apiFetch('/api/me', {}, '/api/renew'), unauthorized);
+  assert.deepEqual(requests, ['/api/me', '/api/renew']);
+});
+
+test('an unauthorized refresh endpoint is not refreshed again', async () => {
+  let count = 0;
+  const unauthorized = { ok: false, status: 401 };
+  const apiFetch = realApi(async () => { count += 1; return unauthorized; });
+  assert.equal(await apiFetch('/api/renew', { method: 'POST' }, '/api/renew'), unauthorized);
+  assert.equal(count, 1);
+});
+
+test('retry preserves the original request and stops after one retry', async () => {
+  const requests = [];
+  const unauthorized = { ok: false, status: 401 };
+  const apiFetch = realApi(async (url, options) => {
+    requests.push({ url, options });
+    return url === '/api/renew' ? ok : unauthorized;
+  });
+  const result = await apiFetch('/api/login', {
+    method: 'POST', body: JSON.stringify({ email: 'test@example.test', password: 'synthetic' }),
+  }, '/api/renew');
+  assert.equal(result, unauthorized);
+  assert.deepEqual(requests.map(request => request.url), ['/api/login', '/api/renew', '/api/login']);
+  assert.equal(requests[2].options.method, requests[0].options.method);
+  assert.equal(requests[2].options.body, requests[0].options.body);
+  assert.equal(requests[2].options.credentials, 'include');
 });
