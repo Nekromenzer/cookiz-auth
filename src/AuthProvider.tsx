@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from "react";
+import React, { createContext, useState, useEffect, useContext, useRef } from "react";
 import { AuthContextType, AuthProviderProps, FirebaseUserLike, User } from "./types";
 import { apiFetch } from "./api";
 
@@ -32,12 +32,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   const endpoints = { ...defaultEndpoints, ...endpointOverrides };
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const sessionVersion = useRef(0);
 
   if (mode === "firebase" && !firebaseAuth) {
     throw new Error("firebaseAuth is required when AuthProvider mode is 'firebase'");
   }
 
   const fetchUser = async () => {
+    const version = sessionVersion.current;
     if (mode === "firebase") {
       const currentUser = firebaseAuth?.currentUser;
       setUser(currentUser ? mapFirebaseUser(currentUser) : null);
@@ -48,12 +50,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     try {
       const userEndpoint = endpoints.user || endpoints.me || "/me";
       const res = await apiFetch(`${endpoints.baseUrl}${userEndpoint}`);
-      if (res.ok) setUser(await res.json());
-      else setUser(null);
+      const nextUser = res.ok ? await res.json() : null;
+      if (version === sessionVersion.current) setUser(nextUser);
     } catch {
-      setUser(null);
+      if (version === sessionVersion.current) setUser(null);
     } finally {
-      setLoading(false);
+      if (version === sessionVersion.current) setLoading(false);
     }
   };
 
@@ -69,11 +71,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
       return;
     }
 
+    const version = sessionVersion.current;
     await apiFetch(`${endpoints.baseUrl}${endpoints.login}`, {
       method: "POST",
       body: JSON.stringify(credentials),
     });
-    await fetchUser();
+    if (version === sessionVersion.current) await fetchUser();
   };
 
   const logout = async () => {
@@ -84,13 +87,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
       return;
     }
 
-    const res = await apiFetch(`${endpoints.baseUrl}${endpoints.logout}`, {
-      method: "POST",
-    });
-    if (!res.ok) {
-      throw new Error(`Logout failed (HTTP ${res.status})`);
+    // Invalidate requests started before logout, including pending JSON parsing.
+    sessionVersion.current += 1;
+    try {
+      const res = await apiFetch(`${endpoints.baseUrl}${endpoints.logout}`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        throw new Error(`Logout failed (HTTP ${res.status})`);
+      }
+      // Also invalidate requests started while logout was in progress.
+      sessionVersion.current += 1;
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
-    setUser(null);
   };
 
   const refresh = async () => {
@@ -106,10 +117,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
       return;
     }
 
+    const version = sessionVersion.current;
     await apiFetch(`${endpoints.baseUrl}${endpoints.refresh}`, {
       method: "POST",
     });
-    await fetchUser();
+    if (version === sessionVersion.current) await fetchUser();
   };
 
   useEffect(() => {
@@ -133,6 +145,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     }
 
     fetchUser();
+    return () => {
+      sessionVersion.current += 1;
+    };
   }, [mode, firebaseAuth, mapFirebaseUser]);
 
   return (
