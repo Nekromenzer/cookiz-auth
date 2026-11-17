@@ -325,5 +325,6 @@ To contribute to `cookiz-auth`, follow these steps:
 
 ## Links
 
+- **Release notes:** [Changelog](CHANGELOG.md)
 - **npm package:** [cookiz-auth](https://www.npmjs.com/package/cookiz-auth)
 - **GitHub repo:** [Nekromenzer/cookiz-auth](https://github.com/Nekromenzer/cookiz-auth)
