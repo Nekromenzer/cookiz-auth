@@ -62,6 +62,16 @@ const App = () => (
 </AuthProvider>
 ```
 
+Cookie-auth endpoints must use HTTPS. HTTP is allowed only for `localhost`,
+`127.0.0.1`, and `[::1]` development servers. Relative endpoints use the page's
+base URL and follow the same rule. Requests reject redirects; configure the final
+endpoint URLs directly, including any required trailing slashes.
+
+In cookie mode, `login()`, `logout()`, and `refresh()` reject unsuccessful HTTP
+responses and network failures. Handle these errors in your UI before showing
+success. Failed login and refresh requests preserve the current local user and
+do not fetch `/me`.
+
 ## 🧑‍💻 Usage
 
 ```tsx
@@ -95,6 +105,35 @@ then pass the Firebase `Auth` instance to `AuthProvider`.
 ```bash
 npm install firebase
 ```
+
+### Firebase dependency security
+
+This repository overrides Firestore's transitive `@grpc/grpc-js` dependency to
+`1.13.6`, a patched version for
+[GHSA-m9gg-hp2v-232j](https://github.com/advisories/GHSA-m9gg-hp2v-232j) and
+[GHSA-f596-whhp-79r4](https://github.com/advisories/GHSA-f596-whhp-79r4).
+
+Firebase is an optional peer dependency installed by your app. npm applies
+[overrides only from the root project](https://docs.npmjs.com/cli/v11/configuring-npm/package-json#overrides),
+so this library's override does not propagate to consumers. If your Firebase
+installation still resolves an affected gRPC version, merge this into your
+app's root `package.json`, then run `npm install` and `npm audit`:
+
+```json
+{
+  "overrides": {
+    "@firebase/firestore": {
+      "@grpc/grpc-js": "1.13.6"
+    }
+  }
+}
+```
+
+This override replaces Firestore's declared `~1.9.0` range. Verify any Firestore
+features your app uses against your backend before deploying. Cookie-only apps
+do not need to install Firebase.
+
+### Firebase setup
 
 ```tsx
 import React from "react";
@@ -173,6 +212,54 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
 - **Session Management**: Your backend should support session management using HTTP-only cookies.
 - **CORS**: Ensure your API has the appropriate CORS headers to allow requests from your frontend.
 - **Endpoints**: Implement the necessary authentication endpoints (`/login`, `/logout`, `/me`, `/refresh`) as specified in the configuration.
+- **CSRF**: Validate server-issued CSRF tokens on all state-changing endpoints,
+  including login, logout, and refresh. Check the request Origin against an exact
+  allowlist (with a Referer fallback when appropriate), reject unexpected origins,
+  and reject simple form content types on JSON-only endpoints. CORS alone does
+  not prevent forged requests.
+
+### CSRF token integration
+
+Configure `csrf` in cookie mode to send a server-issued token in a custom header:
+
+```tsx
+<AuthProvider
+  endpoints={{ baseUrl: "https://api.example.com" }}
+  csrf={{
+    headerName: "X-CSRF-Token", // Optional; this is the default
+    getToken: async () => {
+      const res = await fetch("https://api.example.com/csrf", {
+        credentials: "include",
+        redirect: "error",
+      });
+      if (!res.ok) throw new Error("Could not obtain CSRF token");
+      const { token } = await res.json();
+      return token;
+    },
+  }}
+>
+  <YourAppComponents />
+</AuthProvider>
+```
+
+Implement `/csrf` on your backend as a read-only token bootstrap endpoint that
+works before login. Bind unpredictable tokens to the session (or use your
+framework's signed CSRF mechanism), and validate the configured header before
+performing an action. Keep the session cookie HTTP-only. Never use the session
+ID or an authentication token as the CSRF token.
+
+`getToken` may return a token synchronously or asynchronously. It runs before
+each cookie-auth request, including `/me`, automatic refresh, and retries, so
+rotated tokens can be read again. When configured, missing or blank tokens and
+token lookup failures block the request. Without `csrf`, no token header is
+added; apps must configure this integration or use backend-enforced CSRF
+protection. Firebase mode does not use this option.
+
+Allow only trusted frontend origins in credentialed CORS and allow the configured
+CSRF header plus `Content-Type`. Use `Secure`, `HttpOnly`, and an appropriate
+`SameSite` policy for session cookies. Client headers alone do not provide CSRF
+protection: backend validation remains required. See the
+[OWASP CSRF prevention guidance](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html).
 
 Your backend must set HTTP-only cookies:
 
@@ -238,5 +325,6 @@ To contribute to `cookiz-auth`, follow these steps:
 
 ## Links
 
+- **Release notes:** [Changelog](CHANGELOG.md)
 - **npm package:** [cookiz-auth](https://www.npmjs.com/package/cookiz-auth)
 - **GitHub repo:** [Nekromenzer/cookiz-auth](https://github.com/Nekromenzer/cookiz-auth)

@@ -7,6 +7,13 @@ export interface User {
 
 export type AuthMode = "cookie" | "firebase";
 
+export interface CsrfConfig {
+    /** Read a server-issued CSRF token; called again for refresh and retry requests. */
+    getToken: () => string | null | undefined | Promise<string | null | undefined>;
+    /** Defaults to X-CSRF-Token. */
+    headerName?: string;
+}
+
 export interface FirebaseUserLike {
     uid: string;
     displayName: string | null;
@@ -34,6 +41,7 @@ export interface AuthContextType {
 export interface AuthProviderProps {
     children: React.ReactNode;
     mode?: AuthMode;
+    csrf?: CsrfConfig;
     endpoints?: {
         login?: string;
         logout?: string;
