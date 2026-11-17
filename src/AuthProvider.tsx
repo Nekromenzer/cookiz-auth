@@ -84,9 +84,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
       return;
     }
 
-    await apiFetch(`${endpoints.baseUrl}${endpoints.logout}`, {
+    const res = await apiFetch(`${endpoints.baseUrl}${endpoints.logout}`, {
       method: "POST",
     });
+    if (!res.ok) {
+      throw new Error(`Logout failed (HTTP ${res.status})`);
+    }
     setUser(null);
   };
 
