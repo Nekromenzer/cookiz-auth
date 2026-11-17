@@ -158,9 +158,9 @@ const apiCode = ts.transpileModule(
   { compilerOptions: { module: ts.ModuleKind.CommonJS } }
 ).outputText;
 
-function realApi(fetch) {
+function realApi(fetch, baseUrl = 'https://app.example.test/') {
   const exports = {};
-  vm.runInNewContext(apiCode, { exports, fetch });
+  vm.runInNewContext(apiCode, { exports, fetch, URL, document: { baseURI: baseUrl } });
   return exports.apiFetch;
 }
 
@@ -180,8 +180,8 @@ for (const config of [
   {
     name: 'same-origin relative API',
     endpoints: { baseUrl: '', user: '/api/user', refresh: '/api/renew' },
-    userUrl: '/api/user',
-    refreshUrl: '/api/renew',
+    userUrl: 'https://app.example.test/api/user',
+    refreshUrl: 'https://app.example.test/api/renew',
   },
 ]) {
   test(`automatic refresh uses the provider configuration: ${config.name}`, async () => {
@@ -229,7 +229,7 @@ test('failed automatic refresh returns the original 401 without retrying', async
     return unauthorized;
   });
   assert.equal(await apiFetch('/api/me', {}, '/api/renew'), unauthorized);
-  assert.deepEqual(requests, ['/api/me', '/api/renew']);
+  assert.deepEqual(requests, ['https://app.example.test/api/me', 'https://app.example.test/api/renew']);
 });
 
 test('an unauthorized refresh endpoint is not refreshed again', async () => {
@@ -245,14 +245,91 @@ test('retry preserves the original request and stops after one retry', async () 
   const unauthorized = { ok: false, status: 401 };
   const apiFetch = realApi(async (url, options) => {
     requests.push({ url, options });
-    return url === '/api/renew' ? ok : unauthorized;
+    return url === 'https://app.example.test/api/renew' ? ok : unauthorized;
   });
   const result = await apiFetch('/api/login', {
     method: 'POST', body: JSON.stringify({ email: 'test@example.test', password: 'synthetic' }),
   }, '/api/renew');
   assert.equal(result, unauthorized);
-  assert.deepEqual(requests.map(request => request.url), ['/api/login', '/api/renew', '/api/login']);
+  assert.deepEqual(requests.map(request => request.url), [
+    'https://app.example.test/api/login',
+    'https://app.example.test/api/renew',
+    'https://app.example.test/api/login',
+  ]);
   assert.equal(requests[2].options.method, requests[0].options.method);
   assert.equal(requests[2].options.body, requests[0].options.body);
   assert.equal(requests[2].options.credentials, 'include');
+});
+
+for (const url of [
+  'http://auth.example.test/login',
+  'http://192.168.1.10/login',
+  'http://localhost.example.test/login',
+  'http://localhost@evil.example.test/login',
+  'ftp://auth.example.test/login',
+  'data:text/plain,credentials',
+]) {
+  test(`insecure authentication URL is rejected before fetch: ${url}`, async () => {
+    let calls = 0;
+    const apiFetch = realApi(async () => { calls += 1; return ok; });
+    await assert.rejects(apiFetch(url, { method: 'POST', body: 'synthetic credentials' }), /must use HTTPS/);
+    assert.equal(calls, 0);
+  });
+}
+
+for (const url of [
+  'https://auth.example.test/login',
+  'http://localhost:4000/login',
+  'http://127.0.0.1:4000/login',
+  'http://[::1]:4000/login',
+]) {
+  test(`secure or loopback authentication URL is allowed: ${url}`, async () => {
+    const calls = [];
+    const apiFetch = realApi(async (target, options) => { calls.push({ target, options }); return ok; });
+    assert.equal(await apiFetch(url), ok);
+    assert.equal(calls[0].target, url);
+    assert.equal(calls[0].options.redirect, 'error');
+  });
+}
+
+test('relative endpoints on a remote HTTP page are rejected', async () => {
+  let calls = 0;
+  const apiFetch = realApi(async () => { calls += 1; return ok; }, 'http://app.example.test/');
+  await assert.rejects(apiFetch('/api/login'), /must use HTTPS/);
+  await assert.rejects(apiFetch('//auth.example.test/login'), /must use HTTPS/);
+  assert.equal(calls, 0);
+});
+
+test('relative endpoints remain available on localhost HTTP pages', async () => {
+  const calls = [];
+  const apiFetch = realApi(async url => { calls.push(url); return ok; }, 'http://localhost:3000/');
+  await apiFetch('/api/login');
+  assert.deepEqual(calls, ['http://localhost:3000/api/login']);
+});
+
+test('an insecure refresh URL is rejected before sending the initial request', async () => {
+  let calls = 0;
+  const apiFetch = realApi(async () => { calls += 1; return ok; });
+  await assert.rejects(apiFetch('https://auth.example.test/me', {}, 'http://auth.example.test/renew'), /must use HTTPS/);
+  assert.equal(calls, 0);
+});
+
+test('provider login never sends credentials to a remote HTTP API', async () => {
+  let calls = 0;
+  const app = provider(realApi(async () => { calls += 1; return ok; }), null, {
+    baseUrl: 'http://auth.example.test',
+  });
+  await assert.rejects(app.auth.login({ email: 'test@example.test', password: 'synthetic' }), /must use HTTPS/);
+  assert.equal(calls, 0);
+});
+
+test('initial, refresh, and retry requests all reject redirects', async () => {
+  const requests = [];
+  const apiFetch = realApi(async (url, options) => {
+    requests.push(options);
+    return requests.length === 1 ? { ok: false, status: 401 } : ok;
+  });
+  await apiFetch('/api/login', { redirect: 'follow' }, '/api/renew');
+  assert.equal(requests.length, 3);
+  assert.equal(requests.every(options => options.redirect === 'error'), true);
 });

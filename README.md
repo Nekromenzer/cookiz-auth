@@ -62,6 +62,11 @@ const App = () => (
 </AuthProvider>
 ```
 
+Cookie-auth endpoints must use HTTPS. HTTP is allowed only for `localhost`,
+`127.0.0.1`, and `[::1]` development servers. Relative endpoints use the page's
+base URL and follow the same rule. Requests reject redirects; configure the final
+endpoint URLs directly, including any required trailing slashes.
+
 ## 🧑‍💻 Usage
 
 ```tsx
