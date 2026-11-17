@@ -26,7 +26,7 @@ const ok = { ok: true, status: 204 };
 const userResponse = { ok: true, json: async () => existingUser };
 const flush = () => new Promise(resolve => setImmediate(resolve));
 
-function provider(apiFetch, initialUser = null, endpoints) {
+function provider(apiFetch, initialUser = null, endpoints, csrf) {
   const states = [];
   const effects = [];
   const react = {
@@ -49,7 +49,7 @@ function provider(apiFetch, initialUser = null, endpoints) {
       throw new Error(`Unexpected import: ${name}`);
     },
   });
-  const { props } = exports.AuthProvider({ children: null, endpoints });
+  const { props } = exports.AuthProvider({ children: null, endpoints, csrf });
   return {
     auth: props.value,
     mount: () => effects[0](),
@@ -160,7 +160,7 @@ const apiCode = ts.transpileModule(
 
 function realApi(fetch, baseUrl = 'https://app.example.test/') {
   const exports = {};
-  vm.runInNewContext(apiCode, { exports, fetch, URL, document: { baseURI: baseUrl } });
+  vm.runInNewContext(apiCode, { exports, fetch, URL, Headers, document: { baseURI: baseUrl } });
   return exports.apiFetch;
 }
 
@@ -197,6 +197,7 @@ for (const config of [
       config.userUrl, config.refreshUrl, config.userUrl,
     ]);
     assert.equal(requests[1].options.method, 'POST');
+    assert.equal(requests[1].options.headers.get('Content-Type'), 'application/json');
     assert.equal(requests.every(request => request.options.credentials === 'include'), true);
     assert.equal(app.user, existingUser);
   });
@@ -401,3 +402,90 @@ test('a login rejected after automatic refresh still rejects without loading the
   ]);
   assert.equal(app.user, existingUser);
 });
+
+test('provider sends CSRF tokens on login, user, explicit refresh, and logout requests', async () => {
+  const requests = [];
+  const app = provider(realApi(async (url, options) => {
+    requests.push({ url, options });
+    return url.endsWith('/me') ? userResponse : ok;
+  }), null, undefined, { getToken: async () => 'server-issued-token' });
+  await app.auth.login({ email: 'test@example.test', password: 'synthetic' });
+  await app.auth.refresh();
+  await app.auth.logout();
+  assert.equal(requests.length, 5);
+  for (const { options } of requests) {
+    assert.equal(options.headers.get('X-CSRF-Token'), 'server-issued-token');
+    assert.equal(options.headers.get('Content-Type'), 'application/json');
+    assert.equal(options.credentials, 'include');
+  }
+});
+
+test('automatic refresh and retry read fresh CSRF tokens with a custom header', async () => {
+  const requests = [];
+  let tokenVersion = 0;
+  const apiFetch = realApi(async (url, options) => {
+    requests.push({ url, options });
+    tokenVersion += 1;
+    return requests.length === 1 ? { ok: false, status: 401 } : ok;
+  });
+  await apiFetch('/api/login', { method: 'POST', body: 'synthetic' }, '/api/renew', {
+    headerName: 'X-XSRF-TOKEN', getToken: () => `token-${tokenVersion}`,
+  });
+  assert.deepEqual(requests.map(request => request.options.headers.get('X-XSRF-TOKEN')), [
+    'token-0', 'token-1', 'token-2',
+  ]);
+  assert.equal(requests[1].options.method, 'POST');
+  assert.equal(requests[2].options.body, 'synthetic');
+});
+
+for (const token of [null, undefined, '', '   ']) {
+  test(`missing CSRF token blocks a configured login (${JSON.stringify(token)})`, async () => {
+    let calls = 0;
+    const app = provider(realApi(async () => { calls += 1; return ok; }), existingUser, undefined, {
+      getToken: async () => token,
+    });
+    await assert.rejects(app.auth.login({ email: 'test@example.test', password: 'synthetic' }), /CSRF token is required/);
+    assert.equal(calls, 0);
+    assert.equal(app.user, existingUser);
+  });
+}
+
+for (const missingAt of [1, 2]) {
+  test(`missing CSRF token blocks ${missingAt === 1 ? 'automatic refresh' : 'retry'}`, async () => {
+    let calls = 0;
+    const apiFetch = realApi(async () => {
+      calls += 1;
+      return calls === 1 ? { ok: false, status: 401 } : ok;
+    });
+    await assert.rejects(apiFetch('/api/me', {}, '/api/renew', {
+      getToken: () => calls === missingAt ? null : 'server-issued-token',
+    }), /CSRF token is required/);
+    assert.equal(calls, missingAt);
+  });
+}
+
+test('CSRF token lookup errors propagate without sending a request', async () => {
+  let calls = 0;
+  const error = new Error('CSRF bootstrap failed');
+  const apiFetch = realApi(async () => { calls += 1; return ok; });
+  await assert.rejects(apiFetch('/api/login', {}, undefined, {
+    getToken: async () => { throw error; },
+  }), actual => actual === error);
+  assert.equal(calls, 0);
+});
+
+for (const headers of [
+  { 'X-App': 'test' },
+  [['X-App', 'test']],
+  new Headers({ 'X-App': 'test' }),
+]) {
+  test('CSRF headers merge with supported caller header formats', async () => {
+    const apiFetch = realApi(async (url, options) => {
+      assert.equal(options.headers.get('X-App'), 'test');
+      assert.equal(options.headers.get('Content-Type'), 'application/json');
+      assert.equal(options.headers.get('X-CSRF-Token'), 'server-issued-token');
+      return ok;
+    });
+    await apiFetch('/api/login', { headers }, undefined, { getToken: () => 'server-issued-token' });
+  });
+}

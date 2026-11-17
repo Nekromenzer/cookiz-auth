@@ -26,6 +26,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   children,
   mode = "cookie",
   endpoints: endpointOverrides,
+  csrf,
   firebaseAuth,
   mapFirebaseUser = defaultFirebaseUserMapper,
 }) => {
@@ -34,7 +35,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   const [loading, setLoading] = useState(true);
   const sessionVersion = useRef(0);
   const authFetch = (url: string, options: RequestInit = {}) =>
-    apiFetch(url, options, `${endpoints.baseUrl}${endpoints.refresh}`);
+    apiFetch(url, options, `${endpoints.baseUrl}${endpoints.refresh}`, csrf);
 
   if (mode === "firebase" && !firebaseAuth) {
     throw new Error("firebaseAuth is required when AuthProvider mode is 'firebase'");
