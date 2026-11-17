@@ -1,6 +1,6 @@
 {
   "name": "cookiz-auth",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "React cookie-based authentication with HTTP-only cookies and customizable endpoints.",
   "repository": {
     "type": "git",
@@ -10,13 +10,14 @@
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "rollup -c",
     "dev": "tsc --watch",
     "prepare": "npm run build",
-    "publish": "npm publish --access public",
+    "release": "npm publish --access public",
     "publish:github": "npm publish --registry=https://npm.pkg.github.com"
   },
   "publishConfig": {

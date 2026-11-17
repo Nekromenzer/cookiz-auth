@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.6 - 2026-11-18
 
 ### Authentication fixes
 
@@ -48,13 +48,23 @@
   affected gRPC version; see the [Firebase security setup](README.md#firebase-dependency-security).
   This override replaces Firestore's declared `~1.9.0` range, so applications using
   Firestore should verify their own operations before deploying.
+- Known limitation: cookie-only consumers using bundlers such as esbuild still
+  need Firebase installed because the shared provider imports `firebase/auth`.
+  Isolating the Firebase integration remains future work; see
+  [the usage verification report](USAGE_TEST_REPORT.md).
+- Rename the manual publish shortcut to `npm run release` to avoid invoking
+  `npm publish` recursively through npm's `publish` lifecycle hook.
 
 ### Verification
 
 - Add 58 mocked regression tests covering auth failures, logout races, refresh
   routing, HTTPS enforcement, redirects, and CSRF token handling. Run them with
   `node --test tests/auth-provider.test.cjs`.
-- Verified a clean install, zero reported npm audit vulnerabilities, the library
-  build, and offline Firebase Auth/Firestore initialization with patched gRPC.
+- Verified a clean install, the library build, and offline Firebase Auth/Firestore
+  initialization with patched gRPC. The release-time production dependency audit
+  (`npm audit --omit=dev`) reports zero vulnerabilities. The full audit reports
+  six high-severity affected packages through the build-only `picomatch`
+  dependency chain; [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
+  currently lists no patched version.
 - Live backend authentication, CSRF rejection, and Firestore operations have not
-  been verified. This entry describes pending changes; no release is published.
+  been verified.
