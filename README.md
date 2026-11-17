@@ -67,6 +67,11 @@ Cookie-auth endpoints must use HTTPS. HTTP is allowed only for `localhost`,
 base URL and follow the same rule. Requests reject redirects; configure the final
 endpoint URLs directly, including any required trailing slashes.
 
+In cookie mode, `login()`, `logout()`, and `refresh()` reject unsuccessful HTTP
+responses and network failures. Handle these errors in your UI before showing
+success. Failed login and refresh requests preserve the current local user and
+do not fetch `/me`.
+
 ## 🧑‍💻 Usage
 
 ```tsx

@@ -74,10 +74,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     }
 
     const version = sessionVersion.current;
-    await authFetch(`${endpoints.baseUrl}${endpoints.login}`, {
+    const res = await authFetch(`${endpoints.baseUrl}${endpoints.login}`, {
       method: "POST",
       body: JSON.stringify(credentials),
     });
+    if (!res.ok) {
+      throw new Error(`Login failed (HTTP ${res.status})`);
+    }
     if (version === sessionVersion.current) await fetchUser();
   };
 
@@ -120,9 +123,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     }
 
     const version = sessionVersion.current;
-    await authFetch(`${endpoints.baseUrl}${endpoints.refresh}`, {
+    const res = await authFetch(`${endpoints.baseUrl}${endpoints.refresh}`, {
       method: "POST",
     });
+    if (!res.ok) {
+      throw new Error(`Refresh failed (HTTP ${res.status})`);
+    }
     if (version === sessionVersion.current) await fetchUser();
   };
 

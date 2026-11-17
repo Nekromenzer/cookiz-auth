@@ -333,3 +333,71 @@ test('initial, refresh, and retry requests all reject redirects', async () => {
   assert.equal(requests.length, 3);
   assert.equal(requests.every(options => options.redirect === 'error'), true);
 });
+
+for (const operation of ['login', 'refresh']) {
+  const label = operation === 'login' ? 'Login' : 'Refresh';
+  for (const status of [401, 403, 429, 500]) {
+    test(`${operation} HTTP ${status} rejects without fetching an existing session`, async () => {
+      for (const initialUser of [null, existingUser]) {
+        const requests = [];
+        const app = provider(async url => {
+          requests.push(url);
+          return url.endsWith('/me') ? userResponse : { ok: false, status };
+        }, initialUser);
+        await assert.rejects(
+          app.auth[operation]({ email: 'test@example.test', password: 'synthetic' }),
+          { message: `${label} failed (HTTP ${status})` }
+        );
+        assert.deepEqual(requests, [`http://localhost:4000/${operation}`]);
+        assert.equal(app.user, initialUser);
+      }
+    });
+  }
+
+  test(`${operation} network failure propagates without fetching the user`, async () => {
+    const requests = [];
+    const error = new Error('Network unavailable');
+    const app = provider(async url => { requests.push(url); throw error; }, existingUser);
+    await assert.rejects(
+      app.auth[operation]({ email: 'test@example.test', password: 'synthetic' }),
+      actual => actual === error
+    );
+    assert.deepEqual(requests, [`http://localhost:4000/${operation}`]);
+    assert.equal(app.user, existingUser);
+  });
+
+  for (const status of [200, 204]) {
+    test(`${operation} HTTP ${status} still fetches the authenticated user`, async () => {
+      const requests = [];
+      const app = provider(async url => {
+        requests.push(url);
+        return url.endsWith('/me') ? userResponse : { ok: true, status };
+      });
+      await app.auth[operation]({ email: 'test@example.test', password: 'synthetic' });
+      assert.deepEqual(requests, [
+        `http://localhost:4000/${operation}`, 'http://localhost:4000/me',
+      ]);
+      assert.equal(app.user, existingUser);
+    });
+  }
+}
+
+test('a login rejected after automatic refresh still rejects without loading the old session', async () => {
+  const requests = [];
+  const app = provider(realApi(async url => {
+    requests.push(url);
+    if (url.endsWith('/refresh')) return ok;
+    if (url.endsWith('/me')) return userResponse;
+    return { ok: false, status: 401 };
+  }), existingUser);
+  await assert.rejects(
+    app.auth.login({ email: 'test@example.test', password: 'synthetic' }),
+    { message: 'Login failed (HTTP 401)' }
+  );
+  assert.deepEqual(requests, [
+    'http://localhost:4000/login',
+    'http://localhost:4000/refresh',
+    'http://localhost:4000/login',
+  ]);
+  assert.equal(app.user, existingUser);
+});
